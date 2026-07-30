@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phishing Simulation // Cybersecurity Awareness Demo</title>
+<style>
+  :root{
+    --bg: #0a0d0c;
+    --panel: #0f1513;
+    --term-green: #35f2a3;
+    --alert-red: #ff4747;
+    --warn-amber: #ffb020;
+    --muted: #6b7d78;
+    --paper: #eef4f1;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--paper);
+    font-family:'Space Mono', 'Courier New', monospace;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  /* persistent sim banner */
+  .sim-banner{
+    position:fixed; top:0; left:0; right:0; z-index:999;
+    background:#000;
+    color:var(--term-green);
+    font-size:12px;
+    letter-spacing:0.08em;
+    padding:6px 14px;
+    border-bottom:1px solid #163025;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .sim-banner .dot{
+    display:inline-block; width:7px; height:7px; border-radius:50%;
+    background:var(--alert-red); margin-right:8px;
+    animation:pulse 1.4s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .stage{
+    min-height:100vh;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:70px 20px 40px;
+    position:relative;
+  }
+  .stage.active{display:flex;}
+
+  /* controls for pacing the recording */
+  .stage-controls{
+    position:fixed; bottom:16px; right:16px; z-index:999;
+    display:flex; gap:8px;
+  }
+  .stage-controls button{
+    background:#111a17; color:var(--term-green);
+    border:1px solid #1e2f28; font-family:inherit; font-size:12px;
+    padding:8px 12px; cursor:pointer; letter-spacing:0.05em;
+  }
+  .stage-controls button:hover{background:#16221d;}
+  .stage-controls button:focus-visible{outline:2px solid var(--term-green); outline-offset:2px;}
+
+  /* ---------- SCENE 1: the bait ---------- */
+  #scene-bait{
+    background:radial-gradient(circle at 50% 20%, #10231c, #0a0d0c 70%);
+  }
+  .bait-card{
+    max-width:480px; width:100%;
+    background:linear-gradient(180deg,#fff,#f1f6f3);
+    color:#12201a;
+    border-radius:14px;
+    padding:40px 32px;
+    text-align:center;
+    box-shadow:0 30px 60px rgba(0,0,0,.5);
+    font-family:'Trebuchet MS', Arial, sans-serif;
+  }
+  .bait-card .badge{
+    display:inline-block; background:#ffd23f; color:#3a2b00;
+    font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px;
+    margin-bottom:18px; letter-spacing:.03em;
+  }
+  .bait-card h1{
+    font-size:26px; line-height:1.3; margin-bottom:10px; color:#0f3d2e;
+  }
+  .bait-card p{ font-size:14px; color:#425850; margin-bottom:22px;}
+  .bait-card .prize{
+    font-size:42px; font-weight:800; color:#e0871a; margin-bottom:22px;
+  }
+  .bait-btn{
+    display:inline-block; background:#1fbf74; color:#fff; border:none;
+    font-weight:700; font-size:15px; padding:14px 30px; border-radius:8px;
+    cursor:pointer; font-family:inherit; letter-spacing:.02em;
+  }
+  .bait-btn:hover{background:#18a563;}
+  .bait-fine{ font-size:10px; color:#93a39c; margin-top:16px;}
+  .bait-url{
+    margin-top:26px; font-family:'Space Mono',monospace; font-size:11px;
+    color:#7a8a83; background:#eef3f0; padding:8px 10px; border-radius:6px;
+    word-break:break-all;
+  }
+
+  /* ---------- SCENE 2: the reveal ---------- */
+  #scene-reveal{ background:#050706; }
+  .glitch-wrap{ text-align:center; }
+  .glitch{
+    font-size:clamp(32px, 8vw, 72px);
+    font-weight:800;
+    color:var(--alert-red);
+    letter-spacing:.02em;
+    position:relative;
+    animation:shake 0.15s infinite;
+    text-shadow:0 0 18px rgba(255,71,71,.6);
+  }
+  @keyframes shake{
+    0%{transform:translate(0,0);}
+    25%{transform:translate(-1px,1px);}
+    50%{transform:translate(1px,-1px);}
+    75%{transform:translate(-1px,-1px);}
+    100%{transform:translate(0,0);}
+  }
+  .reveal-sub{
+    margin-top:18px; color:var(--paper); font-size:15px; max-width:560px;
+    line-height:1.6;
+  }
+  .terminal{
+    margin-top:34px; width:min(560px,90vw); background:#000;
+    border:1px solid #1e2f28; border-radius:8px; text-align:left;
+    padding:16px 18px; font-size:13px; color:var(--term-green);
+    min-height:150px;
+  }
+  .terminal .line{ opacity:0; white-space:pre; animation:fadein .3s forwards; }
+  .terminal .line.dim{ color:var(--muted); }
+  .cursor{ display:inline-block; width:8px; background:var(--term-green); animation:blink 1s step-end infinite; }
+  @keyframes blink{50%{opacity:0;}}
+  @keyframes fadein{to{opacity:1;}}
+
+  .disclaimer-box{
+    margin-top:30px; border:1px dashed var(--warn-amber); color:var(--warn-amber);
+    font-size:12px; padding:12px 16px; max-width:560px; text-align:center;
+    letter-spacing:.02em;
+  }
+
+  /* ---------- SCENE 3: red flags breakdown ---------- */
+  #scene-flags{ background:#0a0d0c; align-items:flex-start; }
+  .flags-wrap{
+    display:grid; grid-template-columns: 1fr; gap:26px; max-width:960px; width:100%;
+  }
+  @media(min-width:860px){
+    .flags-wrap{ grid-template-columns: 460px 1fr; align-items:start; }
+  }
+  .mini-bait{
+    transform:scale(0.92); transform-origin:top left; position:relative;
+  }
+  .callout{
+    position:absolute; border:2px solid var(--warn-amber); border-radius:8px;
+  }
+  .callout-label{
+    position:absolute; background:var(--warn-amber); color:#241a00;
+    font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;
+    white-space:nowrap;
+  }
+  .flags-list{ display:flex; flex-direction:column; gap:14px; }
+  .flag-item{
+    border-left:3px solid var(--warn-amber); padding:10px 14px;
+    background:#0f1513;
+  }
+  .flag-item .num{ color:var(--warn-amber); font-size:12px; margin-right:6px;}
+  .flag-item h3{ font-size:14px; color:var(--paper); margin-bottom:4px; }
+  .flag-item p{ font-size:12.5px; color:var(--muted); line-height:1.5; }
+
+  .scene-heading{
+    font-size:13px; letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="sim-banner">
+    <span><span class="dot"></span>SIMULATION MODE — educational recreation, no data is collected or transmitted</span>
+    <span>scene <span id="scene-counter">1</span>/3</span>
+  </div>
+
+  <!-- SCENE 1 -->
+  <section class="stage active" id="scene-bait">
+    <p class="scene-heading">// bait page</p>
+    <div class="bait-card">
+      <span class="badge">🎉 YOU'RE SELECTED</span>
+      <h1>Congratulations! You've won a prize</h1>
+      <p>Our system randomly selected your device for a limited reward. Claim before the timer runs out!</p>
+      <div class="prize">$500 GIFT CARD</div>
+      <button class="bait-btn" id="claim-btn">Claim My Prize Now</button>
+      <p class="bait-fine">Offer expires in 00:04:59 — one per household</p>
+      <div class="bait-url">visit: free-prize-verification-center.example</div>
+    </div>
+  </section>
+
+  <!-- SCENE 2 -->
+  <section class="stage" id="scene-reveal">
+    <p class="scene-heading">// what would happen next in a real attack</p>
+    <div class="glitch-wrap">
+      <div class="glitch">YOU GOT SCAMMED</div>
+      <p class="reveal-sub">
+        On a real phishing page, clicking "claim" could quietly send your info to an attacker.
+        This is a staged recreation — nothing on this page is being collected or sent anywhere.
+      </p>
+    </div>
+    <div class="terminal" id="terminal-out"></div>
+    <div class="disclaimer-box">
+      ⚠️ Re-enactment for a school cybersecurity presentation. No real device, account, or data is touched by this page.
+    </div>
+  </section>
+
+  <!-- SCENE 3 -->
+  <section class="stage" id="scene-flags">
+    <p class="scene-heading">// spot the red flags</p>
+    <div class="flags-wrap">
+      <div class="mini-bait">
+        <div class="bait-card" style="max-width:420px;">
+          <span class="badge">🎉 YOU'RE SELECTED</span>
+          <h1>Congratulations! You've won a prize</h1>
+          <p>Our system randomly selected your device for a limited reward. Claim before the timer runs out!</p>
+          <div class="prize">$500 GIFT CARD</div>
+          <button class="bait-btn">Claim My Prize Now</button>
+          <p class="bait-fine">Offer expires in 00:04:59 — one per household</p>
+          <div class="bait-url">visit: free-prize-verification-center.example</div>
+        </div>
+        <div class="callout" style="top:0px; left:0px; width:100%; height:60px;"></div>
+        <div class="callout-label" style="top:-12px; left:0px;">1. Too good to be true</div>
+
+        <div class="callout" style="top:200px; left:20px; width:70%; height:70px;"></div>
+        <div class="callout-label" style="top:188px; left:20px;">2. Fake urgency timer</div>
+
+        <div class="callout" style="top:330px; left:10px; width:90%; height:30px;"></div>
+        <div class="callout-label" style="top:318px; left:10px;">3. Suspicious link text</div>
+      </div>
+
+      <div class="flags-list">
+        <div class="flag-item">
+          <h3><span class="num">01</span>Too good to be true</h3>
+          <p>Real companies rarely give away prizes for doing nothing. Unexpected "you won!" messages are one of the most common phishing hooks.</p>
+        </div>
+        <div class="flag-item">
+          <h3><span class="num">02</span>Fake urgency</h3>
+          <p>Countdown timers and "act now" language are designed to make you click before you think it through.</p>
+        </div>
+        <div class="flag-item">
+          <h3><span class="num">03</span>Suspicious link / domain</h3>
+          <p>Look closely at the actual web address, not just the button text. Scam links often use odd, unofficial-looking domains.</p>
+        </div>
+        <div class="flag-item">
+          <h3><span class="num">04</span>Pressure to click without reading</h3>
+          <p>Legit offers don't need you to rush. If something pushes you to skip reading the details, slow down.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="stage-controls">
+    <button id="prev-btn">◀ Prev Scene</button>
+    <button id="next-btn">Next Scene ▶</button>
+  </div>
+
+<script>
+  const scenes = ['scene-bait','scene-reveal','scene-flags'];
+  let current = 0;
+  const counter = document.getElementById('scene-counter');
+
+  function showScene(i){
+    scenes.forEach((id,idx)=>{
+      document.getElementById(id).classList.toggle('active', idx===i);
+    });
+    counter.textContent = i+1;
+    if(i===1){ runTerminal(); }
+  }
+
+  document.getElementById('claim-btn').addEventListener('click', ()=>{
+    current = 1; showScene(current);
+  });
+  document.getElementById('next-btn').addEventListener('click', ()=>{
+    current = Math.min(current+1, scenes.length-1); showScene(current);
+  });
+  document.getElementById('prev-btn').addEventListener('click', ()=>{
+    current = Math.max(current-1, 0); showScene(current);
+  });
+
+  let terminalRan = false;
+  function runTerminal(){
+    if(terminalRan) return;
+    terminalRan = true;
+    const out = document.getElementById('terminal-out');
+    const lines = [
+      '> connecting to free-prize-verification-center.example ...',
+      '> [SIMULATED] reading device info ... skipped (no real access)',
+      '> [SIMULATED] reading saved logins ... skipped (no real access)',
+      '> [SIMULATED] this is where a real attacker would exfiltrate data',
+      '> demo complete — see red flag breakdown next'
+    ];
+    lines.forEach((text, idx)=>{
+      const div = document.createElement('div');
+      div.className = 'line' + (text.includes('[SIMULATED]') ? ' dim' : '');
+      div.style.animationDelay = (idx*0.5)+'s';
+      div.textContent = text;
+      out.appendChild(div);
+    });
+    const cur = document.createElement('span');
+    cur.className='cursor';
+    cur.textContent='\u00A0';
+    out.appendChild(cur);
+  }
+</script>
+</body>
+</html>
